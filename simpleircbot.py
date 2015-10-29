@@ -1,6 +1,7 @@
 import socket
 from threading import Thread
 from functools import wraps
+from time import sleep
 from sys import stderr, stdout
 
 def thread(func):
@@ -22,17 +23,19 @@ class IRCBot(object):
         self.channel_list = channel_list
         self.connected = False
 
+    @thread
     def connect(self):
         if not self.connected:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.socket.settimeout(20)
             try:
                 self.socket.connect(self.server_tuple)
-                self.connected = True
             except Exception as e:
                 print "Bot not connected: " + str(e)
                 return
-            self.sendline("USER " + self.nick + " " + self.nick + " " + self.nick + " :hi" )
+            self.socket.send("USER " + self.nick + " " + self.nick + " " + self.nick + " :hi\n" )
+            sleep(1)
+            self.connected = True
             self.setnick(self.nick)
             try:
                 self.socket.recv(2048)
@@ -44,11 +47,19 @@ class IRCBot(object):
                 self.disconnect()
                 print "KeyboardInterrupt: bot shutting down ({})".format(self.nick)
                 return
-            self.pdebug("Bot connected")
+            print "Bot connected"
             self.recvloop()
             self.join_all(self.channel_list)
         else:
             print "Bot already connected"
+
+    def wait_for_connect(self):
+        while not self.connected:
+            sleep(.5)
+
+    def connect_and_wait(self):
+        self.connect()
+        self.wait_for_connect()
 
     def disconnect(self):
         if self.connected:
