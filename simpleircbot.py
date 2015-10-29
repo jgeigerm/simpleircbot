@@ -25,17 +25,21 @@ class IRCBot(object):
     def connect(self):
         if not self.connected:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.socket.settimeout(5)
+            self.socket.settimeout(10)
             try:
                 self.socket.connect(self.server_tuple)
                 self.connected = True
             except Exception as e:
                 print "Bot not connected: " + str(e)
                 return
-            self.pdebug("Bot connected")
-            self.recvloop()
             self.sendline("USER " + self.nick + " " + self.nick + " " + self.nick + " :hi" )
             self.setnick(self.nick)
+            try:
+                self.socket.recv(2048)
+            except socket.timeout as e:
+                print "Timeout waiting for server response... "
+            self.pdebug("Bot connected")
+            self.recvloop()
             self.join_all(self.channel_list)
         else:
             print "Bot already connected"
