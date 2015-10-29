@@ -59,6 +59,10 @@ class IRCBot(object):
         else:
             print("Bot is not connected")
 
+    def quit(self, msg):
+        self.sendline("QUIT :" + msg)
+        self.disconnect()
+
     def pdebug(self, msg):
         if self.debug:
             stderr.write("DEBUG: " + msg + "\n")
