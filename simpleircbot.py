@@ -1,4 +1,5 @@
 import socket
+import select
 from threading import Thread
 from functools import wraps
 from time import sleep
@@ -21,21 +22,22 @@ class IRCBot(object):
         self.quiet = quiet
         self.nick = nick
         self.channel_list = channel_list
+        self.ready = False
         self.connected = False
 
     @thread
     def connect(self):
         if not self.connected:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.socket.settimeout(20)
+            self.socket.settimeout(15)
             try:
                 self.socket.connect(self.server_tuple)
+                self.pdebug("Bot connected")
+                self.connected = True
             except Exception as e:
                 print "Bot not connected: " + str(e)
                 return
-            self.socket.send("USER " + self.nick + " " + self.nick + " " + self.nick + " :hi\n" )
-            sleep(1)
-            self.connected = True
+            self.sendline("USER " + self.nick + " " + self.nick + " " + self.nick + " :hi")
             self.setnick(self.nick)
             try:
                 self.socket.recv(2048)
@@ -43,32 +45,31 @@ class IRCBot(object):
                 print "Timeout waiting for server response... "
                 self.disconnect()
                 return
-            except KeyboardInterrupt:
-                self.disconnect()
-                print "KeyboardInterrupt: bot shutting down ({})".format(self.nick)
-                return
-            print "Bot connected"
             self.recvloop()
             self.join_all(self.channel_list)
+            self.ready = True
+            self.pdebug("Bot ready")
         else:
             print "Bot already connected"
 
-    def wait_for_connect(self):
-        while not self.connected:
-            sleep(.5)
+    def wait_until_ready(self):
+        if self.connected:
+            while not self.ready:
+                sleep(.5)
 
     def connect_and_wait(self):
         self.connect()
-        self.wait_for_connect()
+        self.wait_until_ready()
 
     def disconnect(self):
         if self.connected:
             self.socket.close()
             self.connected = False
+            self.ready = False
             self.joined = []
             self.pdebug("Bot disconnected")
         else:
-            print("Bot is not connected")
+            print("Bot not connected")
 
     def quit(self, msg="Bye!"):
         self.sendline("QUIT :" + msg)
@@ -88,13 +89,16 @@ class IRCBot(object):
         while 1:
             if self.connected:
                 try:
-                    out = self.socket.recv(2048)
-                    if not self.quiet:
-                        stdout.write(out)
-                    if out.startswith("PING"):
-                        self.sendline("PONG :" + self.server_tuple[0])
-                except socket.timeout:
-                    pass
+                    inputready = select.select([self.socket], [], [], 1)[0]
+                    for sock in inputready:
+                        out = self.socket.recv(2048)
+                        if not self.quiet:
+                            stdout.write(out)
+                        if out.startswith("PING"):
+                            self.sendline("PONG :" + self.server_tuple[0])
+                except select.error:
+                    if self.connected:
+                        self.disconnect()
             else:
                 self.pdebug("recvloop exiting")
                 return
@@ -112,28 +116,34 @@ class IRCBot(object):
                 self.disconnect()
                 print "Connection was lost! ({}): {}".format(self.nick, str(e))
         else:
-            print "Bot is not connected"
+            print "Bot not connected"
 
-    def join_one(self, channel):
-        if channel.startswith("#") and channel not in self.joined:
-            self.sendline("JOIN " + channel)
-            self.joined.append(channel)
+    def join(self, channel):
+        if self.connected and self.ready:
+            if channel[0] is '#' and channel not in self.joined:
+                self.sendline("JOIN " + channel)
+                self.joined.append(channel)
+            else:
+                print "'" + channel + "' is not a valid channel or has already been joined"
         else:
-            print "'" + channel + "' is not a valid channel or has already been joined"
+            print "Bot not connected"
 
     def join_all(self, channels):
         for c in channels:
-            self.join_one(c)
+            self.join(c)
 
-    def leave_one(self, channel):
-        if channel.startswith("#") and channel in self.joined:
-            self.sendline("PART " + channel)
-            self.joined.remove(channel)
+    def leave(self, channel):
+        if self.connected and self.ready:
+            if channel[0] is '#' and channel in self.joined:
+                self.sendline("PART " + channel)
+                self.joined.remove(channel)
+            else:
+                print "'" + channel + "' is not a valid channel or is not joined"
         else:
-            print "'" + channel + "' is not a valid channel or is not joined"
+            print "Bot not connected"
 
     def msg(self, chan_usr, msg):
-        self.sendline("PRIVMSG " + chan_usr + " :" + msg)
+        self.sendline("PRIVMSG " + chan_usr + " :" + msg.rstrip())
 
     def msg_all_channels(self, msg):
         for c in self.joined:
