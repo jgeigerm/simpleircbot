@@ -59,7 +59,7 @@ class IRCBot(object):
         else:
             print("Bot is not connected")
 
-    def quit(self, msg):
+    def quit(self, msg="Bye!"):
         self.sendline("QUIT :" + msg)
         self.disconnect()
 
