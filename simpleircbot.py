@@ -25,7 +25,7 @@ class IRCBot(object):
     def connect(self):
         if not self.connected:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.socket.settimeout(10)
+            self.socket.settimeout(20)
             try:
                 self.socket.connect(self.server_tuple)
                 self.connected = True
@@ -38,6 +38,12 @@ class IRCBot(object):
                 self.socket.recv(2048)
             except socket.timeout as e:
                 print "Timeout waiting for server response... "
+                self.disconnect()
+                return
+            except KeyboardInterrupt:
+                self.disconnect()
+                print "KeyboardInterrupt: bot shutting down ({})".format(self.nick)
+                return
             self.pdebug("Bot connected")
             self.recvloop()
             self.join_all(self.channel_list)
