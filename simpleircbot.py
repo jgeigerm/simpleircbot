@@ -14,7 +14,7 @@ def thread(func):
 class IRCBot(object):
 
     def __init__(self, server_tuple, nick, channel_list, debug=False, quiet=False):
-        self.joined = list()
+        self.joined = []
         self.server_tuple = server_tuple
         self.debug = debug
         self.quiet = quiet
@@ -44,6 +44,7 @@ class IRCBot(object):
         if self.connected:
             self.socket.close()
             self.connected = False
+            self.joined = []
             self.pdebug("Bot disconnected")
         else:
             print("Bot is not connected")
@@ -74,6 +75,7 @@ class IRCBot(object):
                 return
 
     def setnick(self, nick):
+        self.nick = nick
         self.sendline("NICK " + nick)
 
     def sendline(self, text):
@@ -82,8 +84,8 @@ class IRCBot(object):
                 self.pdebug("Sending: " + text)
                 self.socket.send(text + "\n")
             except socket.timeout as e:
-                self.connected = False
-                print "Connection was lost!: " + str(e)
+                self.disconnect()
+                print "Connection was lost! ({}): {}".format(self.nick, str(e))
         else:
             print "Bot is not connected"
 
