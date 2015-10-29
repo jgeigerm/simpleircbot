@@ -90,11 +90,11 @@ class IRCBot(object):
             print "Bot is not connected"
 
     def join_one(self, channel):
-        if channel.startswith("#"):
+        if channel.startswith("#") and channel not in self.joined:
             self.sendline("JOIN " + channel)
             self.joined.append(channel)
         else:
-            print "'" + channel + "' is not a valid channel"
+            print "'" + channel + "' is not a valid channel or has already been joined"
 
     def join_all(self, channels):
         for c in channels:
