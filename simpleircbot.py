@@ -14,6 +14,7 @@ def thread(func):
 class IRCBot(object):
 
     def __init__(self, server_tuple, nick, channel_list, debug=False, quiet=False):
+        self.joined = list()
         self.server_tuple = server_tuple
         self.debug = debug
         self.quiet = quiet
@@ -87,14 +88,26 @@ class IRCBot(object):
             print "Bot is not connected"
 
     def join_one(self, channel):
-        self.sendline("JOIN " + channel)
+        if channel.startswith("#"):
+            self.sendline("JOIN " + channel)
+            self.joined.append(channel)
+        else:
+            print "'" + channel + "' is not a valid channel"
 
     def join_all(self, channels):
         for c in channels:
             self.join_one(c)
 
     def leave_one(self, channel):
-        self.sendline("PART " + channel)
+        if channel.startswith("#") and channel in self.joined:
+            self.sendline("PART " + channel)
+            self.joined.remove(channel)
+        else:
+            print "'" + channel + "' is not a valid channel or is not joined"
 
     def msg(self, chan_usr, msg):
         self.sendline("PRIVMSG " + chan_usr + " :" + msg)
+
+    def msg_all_channels(self, msg):
+        for c in self.joined:
+            self.msg(c, msg)
