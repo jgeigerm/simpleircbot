@@ -35,10 +35,10 @@ class IRCBot(object):
                 self.pdebug("Bot connected")
                 self.connected = True
             except Exception as e:
-                print "Bot not connected: " + str(e)
+                print "Bot ({}) not connected (connect): {}".format(self.nick, str(e))
                 return
-            self.sendline("USER " + self.nick + " " + self.nick + " " + self.nick + " :hi")
             self.setnick(self.nick)
+            self.sendline("USER " + self.nick + " " + self.nick + " " + self.nick + " :" + self.nick)
             try:
                 self.socket.recv(2048)
             except socket.timeout as e:
@@ -46,16 +46,17 @@ class IRCBot(object):
                 self.disconnect()
                 return
             self.recvloop()
-            self.join_all(self.channel_list)
             self.ready = True
             self.pdebug("Bot ready")
+            self.join_all(self.channel_list)
         else:
-            print "Bot already connected"
+            print "Bot ({}) already connected".format(self.nick)
 
     def wait_until_ready(self):
-        if self.connected:
-            while not self.ready:
-                sleep(.5)
+        while not self.connected:
+            sleep(.5)
+        while not self.ready:
+            sleep(.5)
 
     def connect_and_wait(self):
         self.connect()
@@ -69,7 +70,7 @@ class IRCBot(object):
             self.joined = []
             self.pdebug("Bot disconnected")
         else:
-            print("Bot not connected")
+            print "Bot ({}) not connected (disconnec)".format(self.nick)
 
     def quit(self, msg="Bye!"):
         self.sendline("QUIT :" + msg)
@@ -77,7 +78,7 @@ class IRCBot(object):
 
     def pdebug(self, msg):
         if self.debug:
-            stderr.write("DEBUG: " + msg + "\n")
+            stderr.write("DEBUG ({}): {}\n".format(self.nick, msg))
 
     def reconnect(self):
         self.close()
@@ -93,7 +94,8 @@ class IRCBot(object):
                     for sock in inputready:
                         out = self.socket.recv(2048)
                         if not self.quiet:
-                            stdout.write(out)
+                            for line in out.split("\n"):
+                                stdout.write("S ({}): {}\n".format(self.nick, line))
                         if out.startswith("PING"):
                             self.sendline("PONG :" + self.server_tuple[0])
                 except select.error:
@@ -111,12 +113,12 @@ class IRCBot(object):
         if self.connected:
             try:
                 self.pdebug("Sending: " + text)
-                self.socket.send(text + "\n")
+                self.socket.send(text + "\r\n")
             except socket.timeout as e:
                 self.disconnect()
                 print "Connection was lost! ({}): {}".format(self.nick, str(e))
         else:
-            print "Bot not connected"
+            print "Bot ({}) not connected (sendline)".format(self.nick)
 
     def join(self, channel):
         if self.connected and self.ready:
@@ -124,9 +126,9 @@ class IRCBot(object):
                 self.sendline("JOIN " + channel)
                 self.joined.append(channel)
             else:
-                print "'" + channel + "' is not a valid channel or has already been joined"
+                print "'{}' is not a valid channel or has already been joined ({})".format(channel, self.nick)
         else:
-            print "Bot not connected"
+            print "Bot ({}) not connected (join)".format(self.nick)
 
     def join_all(self, channels):
         for c in channels:
@@ -138,9 +140,9 @@ class IRCBot(object):
                 self.sendline("PART " + channel)
                 self.joined.remove(channel)
             else:
-                print "'" + channel + "' is not a valid channel or is not joined"
+                print "'{}' is not a valid channel or is not joined ({})".format(channel, self.nick)
         else:
-            print "Bot not connected"
+            print "Bot ({}) not connected (leave)".format(self.nick)
 
     def msg(self, chan_usr, msg):
         self.sendline("PRIVMSG " + chan_usr + " :" + msg.rstrip())
