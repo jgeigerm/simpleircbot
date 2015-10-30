@@ -106,8 +106,8 @@ class IRCBot(object):
                 return
 
     def setnick(self, nick):
-        self.nick = nick[:9]
-        self.sendline("NICK " + self.nick)
+        self.nick = nick
+        self.sendline("NICK " + nick)
 
     def sendline(self, text):
         if self.connected:
